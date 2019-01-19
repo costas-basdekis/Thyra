@@ -738,16 +738,16 @@ class BaseQueue:
         if self.last_time is not None:
             duration = this_time - self.last_time
             duration_total_seconds = duration.total_seconds()
-            print("{} After {}:".format("-" * 10, pretty_duration(duration)))
+            print("{} After {}:".format("-" * 10, pretty_duration(duration, present_only=True)))
         else:
             duration = None
             duration_total_seconds = 0
             print("-" * 35)
         self.last_time = this_time
-        print("{:10}: {:10} ({:5}, {:5}/s)".format("Iteration", self.iteration, delta_iteration, round(delta_iteration / duration_total_seconds) if duration_total_seconds else 0))
-        print("{:10}: {:10} ({:5})".format("Queue", self.queue_count, delta_queue_count))
-        print("{:10}: {:10} ({:5}, {}%)".format("Seen", self.seen_count, delta_seen_count, round(100 * (self.seen_count - self.queue_count) / self.seen_count) if self.seen_count else 'N/A'))
-        print("{:10}: {:10} ({:5}, {}%)".format("Resulted", self.result_count, delta_result_count, round(100 * self.result_count / self.seen_count) if self.seen_count else 'N/A'))
+        print("{:10}: {:10} ({:5}, {:3} , {:5}/s)".format("Iteration", self.iteration, delta_iteration, '', round(delta_iteration / duration_total_seconds) if duration_total_seconds else 0))
+        print("{:10}: {:10} ({:5}, {:3}%, {:5}/s)".format("Queue", self.queue_count, delta_queue_count, round(100 * self.queue_count / self.seen_count) if self.seen_count else 'N/A', round(delta_queue_count / duration_total_seconds) if duration_total_seconds else 0))
+        print("{:10}: {:10} ({:5}, {:3} , {:5}/s)".format("Seen", self.seen_count, delta_seen_count, '', round(delta_seen_count / duration_total_seconds) if duration_total_seconds else 0))
+        print("{:10}: {:10} ({:5}, {:3}%, {:5}/s)".format("Resulted", self.result_count, delta_result_count, round(100 * self.result_count / self.seen_count) if self.seen_count else 'N/A', round(delta_result_count / duration_total_seconds) if duration_total_seconds else 0))
         print_board = self.last_board or self.initial_board
         print('{} Moves ({}, max {})'.format(print_board.move_count, "{0}x{0}".format(print_board.size), print_board.max_level))
         print(print_board)
