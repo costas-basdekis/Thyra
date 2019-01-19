@@ -856,7 +856,7 @@ class BaseQueue:
                     this.board_type.from_equivalent_hash(equivalent_hash))
             raise
         finally:
-            self.multiprocess_end()
+            self.multiprocess_end(queue_in, queue_out, processes)
 
         self.print_stats(force=True)
         return self.get_board_result(self.initial_board)
