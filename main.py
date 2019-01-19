@@ -3,6 +3,8 @@ import collections
 import contextlib
 from datetime import datetime, timedelta
 import itertools
+import multiprocessing
+from multiprocessing import Process, Queue
 
 
 def merge_dicts(*dicts):
@@ -684,13 +686,16 @@ class BaseQueue:
                 }),
             }, f, indent=4)
 
-    def start(self):
+    def start(self, multiprocess=False):
         self.clear()
         self.push_board(self.initial_board, None)
-        return self.resume()
+        return self.resume(multiprocess=multiprocess)
 
-    def resume(self):
-        return self.run_all()
+    def resume(self, multiprocess=False):
+        if multiprocess:
+            return self.run_all_multiprocess()
+        else:
+            return self.run_all()
 
     def clear(self):
         self.clear_queue()
@@ -809,19 +814,23 @@ class BaseQueue:
         self.last_board = board
 
         next_boards = board.get_next_boards()
+        winning_next_boards = [
+            next_board
+            for next_board in next_boards
+            if next_board.has_player_b_won()
+        ]
+
+        self.process_one(board, next_boards, winning_next_boards)
+
+    def process_one(self, board, next_boards, winning_next_boards):
         if not next_boards:
             self.mark_board_result(board, Board.PLAYER_B)
             return
 
-        any_next_board_winning = any(
-            next_board
-            for next_board in next_boards
-            if next_board.has_player_b_won()
-        )
-        if any_next_board_winning:
+        if winning_next_boards:
             self.mark_board_result(board, Board.PLAYER_A)
             for next_board in next_boards:
-                if next_board.has_player_b_won():
+                if next_board in winning_next_boards:
                     self.mark_board_result(next_board, Board.PLAYER_B)
                     self.mark_board_seen(next_board)
                 self.add_sequence(board, next_board)
@@ -830,7 +839,142 @@ class BaseQueue:
         for next_board in next_boards:
             self.push_board(next_board, board)
 
-        return
+    def run_all_multiprocess(self):
+        processes, queue_in, queue_out, in_process = self.multiprocess_start()
+
+        try:
+            self.print_stats(force=True)
+            while not self.has_initial_board_resulted():
+                if not self.multiprocess_map(queue_in, in_process, processes):
+                    if not in_process:
+                        break
+
+                self.multiprocess_reduce(queue_out, in_process)
+        except Exception:
+            for equivalent_hash in in_process:
+                self.un_pop_board(
+                    this.board_type.from_equivalent_hash(equivalent_hash))
+            raise
+        finally:
+            self.multiprocess_end()
+
+        self.print_stats(force=True)
+        return self.get_board_result(self.initial_board)
+
+    def multiprocess_start(self):
+        queue_in = Queue()
+        queue_out = Queue()
+        in_process = set()
+
+        processes_count = multiprocessing.cpu_count() - 1
+        processes = [
+            Process(target=self.next_boards_worker, kwargs={
+                'index': index + 1,
+                'size': self.board_type.size,
+                'max_level': self.board_type.max_level,
+                'queue_in': queue_in,
+                'queue_out': queue_out,
+            })
+            for index in range(processes_count)
+        ]
+        for process in processes:
+            process.start()
+
+        return processes, queue_in, queue_out, in_process
+
+    def multiprocess_map(self, queue_in, in_process, processes):
+        max_queue_in = len(processes) * 1000
+        queue_add = max_queue_in - queue_in.qsize()
+        for _ in range(queue_add):
+            board = self.pop_board()
+            if not board:
+                return False
+            in_process.add(board.equivalent_hash)
+            queue_in.put(board.equivalent_hash)
+
+        return True
+
+    def multiprocess_reduce(self, queue_out, in_process):
+        queue_remove = queue_out.qsize()
+        for _ in range(queue_remove):
+            success, equivalent_hash, result = queue_out.get()
+            in_process.remove(equivalent_hash)
+            board = self.board_type.from_equivalent_hash(equivalent_hash)
+            if not success:
+                self.un_pop_board(board)
+                continue
+
+            next_boards_hashes, winning_next_boards_hashes = result
+            next_boards = [
+                self.board_type.from_equivalent_hash(next_equivalent_hash)
+                for next_equivalent_hash in next_boards_hashes
+            ]
+            winning_next_boards = [
+                next_board
+                for next_board in next_boards
+                if next_board.equivalent_hash in winning_next_boards_hashes
+            ]
+            self.process_one(board, next_boards, winning_next_boards)
+            self.iteration += 1
+            self.last_board = board
+
+            self.print_stats()
+            self.auto_save()
+
+    def multiprocess_end(self, queue_in, queue_out, processes):
+        queue_in.put(None)
+        for process in processes:
+            process.terminate()
+        queue_in.close()
+        queue_out.close()
+
+    @classmethod
+    def next_boards_worker(cls, index, size, max_level, queue_in, queue_out):
+        print('Starting worker #{}'.format(index))
+        board_type = Board.for_size(size).for_max_level(max_level)
+        waited = timedelta(0)
+        while True:
+            if queue_in.empty():
+                now = datetime.now()
+            else:
+                now = None
+            equivalent_hash = queue_in.get()
+            if now is not None:
+                waited_now = datetime.now() - now
+                waited += waited_now
+                if waited_now > timedelta(seconds=1):
+                    print('Worker #{} waited {}, total {}'.format(
+                        index,
+                        pretty_duration(waited_now, present_only=True),
+                        pretty_duration(waited, present_only=True),
+                    ))
+            if equivalent_hash is None:
+                print('Worker #{} to finish'.format(index))
+                queue_in.put(None)
+                break
+
+            try:
+                board = board_type.from_equivalent_hash(equivalent_hash)
+                queue_out.put((True, equivalent_hash, cls.get_next_boards(board)))
+            except Exception as e:
+                queue_out.put((False, equivalent_hash, None))
+                print('Worker #{} Exception'.format(index), e)
+                raise
+
+        print('Worker #{} finished'.format(index))
+
+    @classmethod
+    def get_next_boards(cls, board):
+        next_boards = board.get_next_boards()
+        winning_next_boards = [
+            next_board
+            for next_board in next_boards
+            if next_board.has_player_b_won()
+        ]
+        return (
+            tuple(board.equivalent_hash for board in next_boards),
+            tuple(board.equivalent_hash for board in winning_next_boards),
+        )
 
     def push_board(self, board, previous_board):
         if previous_board:
