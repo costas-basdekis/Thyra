@@ -794,16 +794,17 @@ class BaseQueue:
             self.mark_board_result(board, Board.PLAYER_B)
             return
 
-        winning_next_boards = [
+        any_next_board_winning = any(
             next_board
             for next_board in next_boards
             if next_board.has_player_b_won()
-        ]
-        if winning_next_boards:
+        )
+        if any_next_board_winning:
             self.mark_board_result(board, Board.PLAYER_A)
-            for next_board in winning_next_boards:
-                self.mark_board_result(next_board, Board.PLAYER_B)
-                self.mark_board_seen(next_board)
+            for next_board in next_boards:
+                if next_board.has_player_b_won():
+                    self.mark_board_result(next_board, Board.PLAYER_B)
+                    self.mark_board_seen(next_board)
                 self.add_sequence(board, next_board)
             return
 
