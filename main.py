@@ -603,7 +603,7 @@ class BaseQueue:
         print("Saving to '{}'...".format(filename))
         start_time = datetime.now()
         with open(filename, 'w') as f:
-            json.dumps(self.get_state(), f)
+            json.dump(self.get_state(), f)
         print("Saved in {}".format(
             pretty_duration(datetime.now() - start_time, present_only=True)))
 
