@@ -743,9 +743,9 @@ class BaseQueue:
         print("{:10}: {:10} ({:5})".format("Queue", self.queue_count, delta_queue_count))
         print("{:10}: {:10} ({:5}, {}%)".format("Seen", self.seen_count, delta_seen_count, round(100 * (self.seen_count - self.queue_count) / self.seen_count) if self.seen_count else 'N/A'))
         print("{:10}: {:10} ({:5}, {}%)".format("Resulted", self.result_count, delta_result_count, round(100 * self.result_count / self.seen_count) if self.seen_count else 'N/A'))
-        if self.last_board:
-            print('{} Moves'.format(self.last_board.move_count))
-            print(self.last_board)
+        print_board = self.last_board or self.initial_board
+        print('{} Moves'.format(print_board.move_count))
+        print(print_board)
         print("-" * 35)
 
         self.previous_iteration = self.iteration
