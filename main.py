@@ -23,8 +23,8 @@ def pretty_duration(duration, present_only=False):
     ]
 
     if present_only:
-        while len(units) > 1 and units[-1][1] == 0:
-            units = units[:-1]
+        while len(units) > 1 and units[0][1] == 0:
+            units = units[1:]
 
     return "".join("{}{}".format(value, unit) for unit, value in units)
 
