@@ -667,6 +667,23 @@ class BaseQueue:
         queue.previous_result_count = state['previous_result_count']
         queue.last_board = board_type.from_board_hash(state['last_board'])
 
+    def export_solution(self, filename=None):
+        if filename is None:
+            filename = './solved-{0}x{0}-max{1}.json'.format(
+                self.initial_board.size, self.initial_board.max_level)
+        with open(filename, 'w') as f:
+            json.dump({
+                'start': self.initial_board.equivalent_hash,
+                'forward': self.forward,
+                'result': merge_dicts({
+                    h: 'a'
+                    for h in self.result_a
+                }, {
+                    h: 'b'
+                    for h in self.result_b
+                }),
+            }, f, indent=4)
+
     def start(self):
         self.clear()
         self.push_board(self.initial_board, None)
