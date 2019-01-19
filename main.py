@@ -754,6 +754,8 @@ class BaseQueue:
         self.previous_result_count = self.result_count
 
     def should_print_stats(self, force):
+        if force:
+            return True
         if self.iteration % 2500 != 0:
             return False
 
@@ -761,7 +763,7 @@ class BaseQueue:
         delta_seen_count = self.seen_count - self.previous_seen_count
         delta_result_count = self.result_count - self.previous_result_count
 
-        return force or (
+        return (
             abs(delta_seen_count) >= 10000
             or abs(delta_queue_count) >= 10000
             or abs(delta_result_count) >= 10000
