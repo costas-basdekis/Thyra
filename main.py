@@ -845,11 +845,12 @@ class BaseQueue:
         try:
             self.print_stats(force=True)
             while not self.has_initial_board_resulted():
-                if not self.multiprocess_map(queue_in, in_process, processes):
+                if not self.multiprocess_map(
+                        queue_in, queue_out, in_process, processes):
                     if not in_process:
                         break
 
-                self.multiprocess_reduce(queue_out, in_process)
+                self.multiprocess_reduce(queue_out, in_process, processes)
         except Exception:
             for equivalent_hash in in_process:
                 self.un_pop_board(
@@ -882,9 +883,13 @@ class BaseQueue:
 
         return processes, queue_in, queue_out, in_process
 
-    def multiprocess_map(self, queue_in, in_process, processes):
+    def multiprocess_map(self, queue_in, queue_out, in_process, processes):
         max_queue_in = len(processes) * 1000
-        queue_add = max_queue_in - queue_in.qsize()
+        max_queue_out = len(processes) * 500
+        queue_add = min(
+            max_queue_in - queue_in.qsize(),
+            max_queue_out - queue_out.qsize(),
+        )
         for _ in range(queue_add):
             board = self.pop_board()
             if not board:
@@ -894,8 +899,9 @@ class BaseQueue:
 
         return True
 
-    def multiprocess_reduce(self, queue_out, in_process):
-        queue_remove = queue_out.qsize()
+    def multiprocess_reduce(self, queue_out, in_process, processes):
+        max_queue_out = len(processes) * 250
+        queue_remove = min(queue_out.qsize(), max_queue_out)
         for _ in range(queue_remove):
             success, equivalent_hash, result = queue_out.get()
             in_process.remove(equivalent_hash)
