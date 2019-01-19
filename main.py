@@ -853,7 +853,7 @@ class BaseQueue:
         except Exception:
             for equivalent_hash in in_process:
                 self.un_pop_board(
-                    this.board_type.from_equivalent_hash(equivalent_hash))
+                    self.board_type.from_equivalent_hash(equivalent_hash))
             raise
         finally:
             self.multiprocess_end(queue_in, queue_out, processes)
