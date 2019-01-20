@@ -379,7 +379,17 @@ class Board:
         )
         return type(self)(board=board_board)
 
-    def combine_position_mutations(self, position_mutations):
+    @classmethod
+    def get_play_position_mutation(cls, play):
+        start_position, end_position, build_position = play
+        return cls.combine_position_mutations([
+            cls.get_move_position_mutation(start_position, end_position),
+            cls.get_build_position_mutation(end_position, build_position),
+            cls.switch_players_position_mutation,
+        ])
+
+    @classmethod
+    def combine_position_mutations(cls, position_mutations):
         def combined_position_mutations(player, level, row, column):
             for position_mutation in position_mutations:
                 player, level = position_mutation(player, level, row, column)
@@ -388,18 +398,13 @@ class Board:
 
         return combined_position_mutations
 
-    def play(self, start_position, end_position, build_position):
-        play = (start_position, end_position, build_position)
+    def play(self, play):
         if play not in self.plays:
             raise CannotPlayError("Play is not a valid play")
         if self.has_player_b_won():
             raise CannotPlayError("Player B has already won")
 
-        return self.mutate(self.combine_position_mutations([
-            self.get_move_position_mutation(start_position, end_position),
-            self.get_build_position_mutation(end_position, build_position),
-            self.switch_players_position_mutation,
-        ]))
+        return self.mutate(self.plays[play])
 
     def has_player_b_won(self):
         if self._has_player_b_won is None:
@@ -443,12 +448,13 @@ class Board:
         return self.mutate(self.get_move_position_mutation(
             start_position, end_position))
 
-    def get_move_position_mutation(self, start_position, end_position):
+    @classmethod
+    def get_move_position_mutation(cls, start_position, end_position):
         def position_mutation(player, level, row, column):
             if (row, column) == start_position:
                 return (None, level)
             if (row, column) == end_position:
-                return (self.PLAYER_A, level)
+                return (cls.PLAYER_A, level)
             return (player, level)
 
         return position_mutation
@@ -485,7 +491,8 @@ class Board:
         return self.mutate(self.get_build_position_mutation(
             end_position, build_position))
 
-    def get_build_position_mutation(self, end_position, build_position):
+    @classmethod
+    def get_build_position_mutation(cls, end_position, build_position):
         def position_mutation(player, level, row, column):
             if (row, column) == build_position:
                 return (player, level + 1)
@@ -496,13 +503,14 @@ class Board:
     def switch_players(self):
         return self.mutate(self.switch_players_position_mutation)
 
-    def switch_players_position_mutation(self, player, level, row, column):
-        return (self.SWITCH_PLAYER_MAP[player], level)
+    @classmethod
+    def switch_players_position_mutation(cls, player, level, row, column):
+        return (cls.SWITCH_PLAYER_MAP[player], level)
 
     @classmethod
     def get_all_plays(cls):
         return {
-            play
+            play: cls.get_play_position_mutation(play)
             for play in (
                 (start_position, end_position,
                  cls.add_positions(end_position, build_offset))
@@ -553,7 +561,7 @@ class Board:
 
         for play in self.get_possible_plays():
             try:
-                next_board = self.play(*play)
+                next_board = self.play(play)
             except CannotPlayError:
                 pass
             else:
