@@ -557,16 +557,13 @@ class Board:
         return row, column
 
     def get_next_boards(self):
-        next_boards = set()
+        if self.has_player_b_won():
+            return []
 
-        for play in self.get_possible_plays():
-            try:
-                next_board = self.play(play)
-            except CannotPlayError:
-                pass
-            else:
-                next_boards.add(next_board)
-        return list(next_boards)
+        return list({
+            self.mutate(self.plays[play])
+            for play in self.get_possible_plays()
+        })
 
 Board64 = Board.for_size(6).for_max_level(4)
 
