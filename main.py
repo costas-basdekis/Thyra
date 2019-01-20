@@ -284,10 +284,6 @@ class Board:
     def get(self, position, default=None):
         return self[position]
 
-    def __setitem__(self, position, value):
-        row, column = position
-        self.board[row][column] = value
-
     def all_equivalents(self):
         return [
             self.transform_with_transformation(transformation)
