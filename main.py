@@ -584,10 +584,12 @@ class BaseQueue:
         'previous_auto_save_time',
         'iteration',
         'queue_count',
+        'queue_out_count',
         'seen_count',
         'result_count',
         'previous_iteration',
         'previous_queue_count',
+        'previous_queue_out_count',
         'previous_seen_count',
         'previous_result_count',
         'last_board',
@@ -607,10 +609,12 @@ class BaseQueue:
 
         self.iteration = None
         self.queue_count = None
+        self.queue_out_count = None
         self.seen_count = None
         self.result_count = None
         self.previous_iteration = None
         self.previous_queue_count = None
+        self.previous_queue_out_count = None
         self.previous_seen_count = None
         self.previous_result_count = None
         self.last_board = None
@@ -663,10 +667,12 @@ class BaseQueue:
             },
             'iteration': self.iteration,
             'queue_count': self.queue_count,
+            'queue_out_count': self.queue_out_count,
             'seen_count': self.seen_count,
             'result_count': self.result_count,
             'previous_iteration': self.previous_iteration,
             'previous_queue_count': self.previous_queue_count,
+            'previous_queue_out_count': self.previous_queue_out_count,
             'previous_seen_count': self.previous_seen_count,
             'previous_result_count': self.previous_result_count,
             'last_board': self.last_board.board_hash,
@@ -678,10 +684,12 @@ class BaseQueue:
             queue.saving_to = filename
         queue.iteration = state['iteration']
         queue.queue_count = state['queue_count']
+        queue.queue_out_count = state['queue_out_count']
         queue.seen_count = state['seen_count']
         queue.result_count = state['result_count']
         queue.previous_iteration = state['previous_iteration']
         queue.previous_queue_count = state['previous_queue_count']
+        queue.previous_queue_out_count = state['previous_queue_out_count']
         queue.previous_seen_count = state['previous_seen_count']
         queue.previous_result_count = state['previous_result_count']
         queue.last_board = board_type.from_board_hash(state['last_board'])
@@ -724,10 +732,12 @@ class BaseQueue:
     def clear_stats(self):
         self.iteration = 0
         self.queue_count = 0
+        self.queue_out_count = 0
         self.seen_count = 0
         self.result_count = 0
         self.previous_iteration = 0
         self.previous_queue_count = 0
+        self.previous_queue_out_count = 0
         self.previous_seen_count = 0
         self.previous_result_count = 0
         self.last_board = None
@@ -748,6 +758,7 @@ class BaseQueue:
 
         delta_iteration = self.iteration - self.previous_iteration
         delta_queue_count = self.queue_count - self.previous_queue_count
+        delta_queue_out_count = self.queue_out_count - self.previous_queue_out_count
         delta_seen_count = self.seen_count - self.previous_seen_count
         delta_result_count = self.result_count - self.previous_result_count
 
@@ -762,6 +773,7 @@ class BaseQueue:
             print("-" * 35)
         self.last_time = this_time
         print("{:10}: {:10} ({:5}, {:3} , {:5}/s)".format("Iteration", self.iteration, delta_iteration, '', round(delta_iteration / duration_total_seconds) if duration_total_seconds else 0))
+        print("{:10}: {:10} ({:5}, {:3} , {:5}/s)".format("Queue out", self.queue_out_count, delta_queue_out_count, '', round(delta_queue_out_count / duration_total_seconds) if duration_total_seconds else 0))
         print("{:10}: {:10} ({:5}, {:3}%, {:5}/s)".format("Queue", self.queue_count, delta_queue_count, round(100 * self.queue_count / self.seen_count) if self.seen_count else 'N/A', round(delta_queue_count / duration_total_seconds) if duration_total_seconds else 0))
         print("{:10}: {:10} ({:5}, {:3} , {:5}/s)".format("Seen", self.seen_count, delta_seen_count, '', round(delta_seen_count / duration_total_seconds) if duration_total_seconds else 0))
         print("{:10}: {:10} ({:5}, {:3}%, {:5}/s)".format("Resulted", self.result_count, delta_result_count, round(100 * self.result_count / self.seen_count) if self.seen_count else 'N/A', round(delta_result_count / duration_total_seconds) if duration_total_seconds else 0))
@@ -772,6 +784,7 @@ class BaseQueue:
 
         self.previous_iteration = self.iteration
         self.previous_queue_count = self.queue_count
+        self.previous_queue_out_count = self.queue_out_count
         self.previous_seen_count = self.seen_count
         self.previous_result_count = self.result_count
 
@@ -782,11 +795,13 @@ class BaseQueue:
             return False
 
         delta_queue_count = self.queue_count - self.previous_queue_count
+        delta_queue_out_count = self.queue_out_count - self.previous_queue_out_count
         delta_seen_count = self.seen_count - self.previous_seen_count
         delta_result_count = self.result_count - self.previous_result_count
 
         return (
             abs(delta_seen_count) >= 10000
+            or abs(delta_queue_out_count) >= 10000
             or abs(delta_queue_count) >= 10000
             or abs(delta_result_count) >= 10000
         )
@@ -823,6 +838,7 @@ class BaseQueue:
         except Exception:
             self.un_pop_board(board)
             raise
+        self.queue_out_count += 1
 
         return True
 
@@ -929,6 +945,7 @@ class BaseQueue:
         if not success:
             self.un_pop_board(board)
             return
+        self.queue_out_count += 1
 
         next_boards_hashes, winning_next_boards_hashes = result
         next_boards = [
