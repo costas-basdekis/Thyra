@@ -370,10 +370,14 @@ class Board:
         return transformations, reverse_transformations
 
     def mutate(self, position_mutation):
-        return type(self)({
-            position: position_mutation(*(list(self[position]) + list(position)))
-            for position in self.positions
-        })
+        board_board = tuple(
+            tuple(
+                position_mutation(*(self[row, column] + (row, column)))
+                for column in range(self.size)
+            )
+            for row in range(self.size)
+        )
+        return type(self)(board=board_board)
 
     def combine_position_mutations(self, position_mutations):
         def combined_position_mutations(player, level, row, column):
