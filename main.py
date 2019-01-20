@@ -920,32 +920,34 @@ class BaseQueue:
         max_queue_out = len(processes) * 250
         queue_remove = min(queue_out.qsize(), max_queue_out)
         for _ in range(queue_remove):
-            success, equivalent_hash, result = queue_out.get()
-            in_process.remove(equivalent_hash)
-            board = self.board_type.from_equivalent_hash(equivalent_hash)
-            if not success:
-                self.un_pop_board(board)
-                continue
+            self.multiprocess_reduce_step(queue_out, in_process, processes)
 
-            next_boards_hashes, winning_next_boards_hashes = result
-            next_boards = [
-                self.board_type.from_equivalent_hash(next_equivalent_hash)
-                for next_equivalent_hash in next_boards_hashes
-            ]
-            winning_next_boards = [
-                next_board
-                for next_board in next_boards
-                if next_board.equivalent_hash in winning_next_boards_hashes
-            ]
-            self.process_one(board, next_boards, winning_next_boards)
-            self.iteration += 1
-            self.last_board = board
+    def multiprocess_reduce_step(self, queue_out, in_process, processes):
+        success, equivalent_hash, result = queue_out.get()
+        in_process.remove(equivalent_hash)
+        board = self.board_type.from_equivalent_hash(equivalent_hash)
+        if not success:
+            self.un_pop_board(board)
+            return
 
-            self.print_stats()
-            self.auto_save()
+        next_boards_hashes, winning_next_boards_hashes = result
+        next_boards = [
+            self.board_type.from_equivalent_hash(next_equivalent_hash)
+            for next_equivalent_hash in next_boards_hashes
+        ]
+        winning_next_boards = [
+            next_board
+            for next_board in next_boards
+            if next_board.equivalent_hash in winning_next_boards_hashes
+        ]
+        self.process_one(board, next_boards, winning_next_boards)
+        self.iteration += 1
+        self.last_board = board
+
+        self.print_stats()
+        self.auto_save()
 
     def multiprocess_end(self, queue_in, queue_out, processes):
-        queue_in.put(None)
         for process in processes:
             process.terminate()
         queue_in.close()
@@ -1239,6 +1241,50 @@ class MemoryQueue(BaseQueue):
             return self.board_type.PLAYER_A
         elif equivalent_hash in self.result_b:
             return self.board_type.PLAYER_B
+
+
+class MultiprocessMemoryQueue(MemoryQueue):
+    __slots__ = [
+        'in_process',
+    ]
+
+    def clear_queue(self):
+        super().clear_queue()
+        self.queue = Queue()
+        self.in_process = set()
+
+    def multiprocess_start(self):
+        processes, queue_in, queue_out, in_process = \
+            super().multiprocess_start()
+        in_process.update(self.in_process)
+        while not self.queue.empty():
+            equivalent_hash = self.queue.get()
+            queue_in.put(equivalent_hash)
+            in_process.add(equivalent_hash)
+        self.queue = queue_in
+        self.in_process = in_process
+        return processes, queue_in, queue_out, in_process
+
+    def multiprocess_map(self, queue_in, queue_out, in_process, processes):
+        return not queue_in.empty()
+
+    def multiprocess_end(self, queue_in, queue_out, processes):
+        super().multiprocess_end(Queue(), queue_out, processes)
+
+    def push(self, equivalent_hash):
+        self.queue.put(equivalent_hash)
+        self.in_process.add(equivalent_hash)
+
+    def pop(self):
+        if self.queue.empty():
+            return None
+        equivalent_hash = self.queue.get()
+        self.in_process.add(equivalent_hash)
+        return equivalent_hash
+
+    def un_pop(self, equivalent_hash):
+        self.in_process.remove(equivalent_hash)
+        self.push(equivalent_hash)
 
 
 class RedisQueue(BaseQueue):
