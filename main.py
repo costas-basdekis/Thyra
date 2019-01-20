@@ -46,6 +46,7 @@ class CannotBuildError(CannotPlayError):
 class Board:
     size = NotImplemented
     positions = NotImplemented
+    parse_positions = NotImplemented
     transformations = NotImplemented
     reverse_transformations = NotImplemented
     max_level = NotImplemented
@@ -57,12 +58,20 @@ class Board:
     @classmethod
     def for_size(cls, size):
         _size = size
+        _positions = [
+            (row, column)
+            for column in range(size)
+            for row in range(size)
+        ]
 
         class MapForSize(cls):
             size = _size
-            positions = [
-                (row, column)
-                for column in range(size)
+            positions = _positions
+            parse_positions = [
+                [
+                    _positions.index((row, column)) * 2
+                    for column in range(size)
+                ]
                 for row in range(size)
             ]
         MapForSize.__name__ = "{}{}".format(cls.__name__, size)
@@ -143,19 +152,18 @@ class Board:
 
     @classmethod
     def from_board_hash(cls, board_hash):
-        board_board = ()
-        column = ()
-        for start in range(0, len(board_hash), 2):
-            player_str, level_str = board_hash[start:start + 2]
-            value = (
-                cls.PARSE_PLAYER_MAP[player_str],
-                cls.PARSE_LEVEL_MAP[level_str],
+        PARSE_PLAYER_MAP = cls.PARSE_PLAYER_MAP
+        PARSE_LEVEL_MAP = cls.PARSE_LEVEL_MAP
+        board_board = tuple(
+            tuple(
+                (
+                    PARSE_PLAYER_MAP[board_hash[start]],
+                    PARSE_LEVEL_MAP[board_hash[start + 1]],
+                )
+                for start in row
             )
-            column += (value,)
-            if len(column) == cls.size:
-                board_board += (column,)
-                column = ()
-        board_board = tuple(zip(*board_board))
+            for row in cls.parse_positions
+        )
 
         board = cls(board=board_board)
         board._board_hash = board_hash
