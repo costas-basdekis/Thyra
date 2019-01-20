@@ -143,15 +143,21 @@ class Board:
 
     @classmethod
     def from_board_hash(cls, board_hash):
-        values = [
-            (cls.PARSE_PLAYER_MAP[player_str], cls.PARSE_LEVEL_MAP[level_str])
-            for player_str, level_str in (
-                board_hash[start:start + 2]
-                for start in range(0, len(board_hash), 2)
+        board_board = ()
+        column = ()
+        for start in range(0, len(board_hash), 2):
+            player_str, level_str = board_hash[start:start + 2]
+            value = (
+                cls.PARSE_PLAYER_MAP[player_str],
+                cls.PARSE_LEVEL_MAP[level_str],
             )
-        ]
-        new_values = dict(zip(cls.positions, values))
-        board = cls(new_values)
+            column += (value,)
+            if len(column) == cls.size:
+                board_board += (column,)
+                column = ()
+        board_board = tuple(zip(*board_board))
+
+        board = cls(board=board_board)
         board._board_hash = board_hash
 
         return board
@@ -171,21 +177,24 @@ class Board:
         'board',
     ]
 
-    def __init__(self, values=None):
+    def __init__(self, values=None, board=None):
         self._board_hash = None
         self._equivalent_hash = None
         self._has_player_b_won = None
         self._move_count = None
 
-        if values is None:
-            values = {}
-        self.board = tuple(
-            tuple(
-                values.get((row, column), (None, 0))
-                for column in range(self.size)
+        if board is None:
+            if values is None:
+                values = {}
+            board = tuple(
+                tuple(
+                    values.get((row, column), (None, 0))
+                    for column in range(self.size)
+                )
+                for row in range(self.size)
             )
-            for row in range(self.size)
-        )
+
+        self.board = board
 
     def __eq__(self, other):
         return self.board == other.board
