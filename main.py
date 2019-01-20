@@ -85,6 +85,10 @@ class Board:
     @classmethod
     def for_max_level(cls, max_level):
         _max_level = max_level
+        _HASH_LEVEL_MAP = merge_dicts({0: ' '}, {
+            level: str(level)
+            for level in range(1, _max_level + 1)
+        })
 
         class MapForMaxLevel(cls):
             max_level = _max_level
@@ -93,14 +97,16 @@ class Board:
                 level: str(level)
                 for level in range(1, _max_level + 1)
             })
-            HASH_LEVEL_MAP = merge_dicts({0: ' '}, {
-                level: str(level)
-                for level in range(1, _max_level + 1)
-            })
+            HASH_LEVEL_MAP = _HASH_LEVEL_MAP
             PARSE_LEVEL_MAP = merge_dicts({' ': 0}, {
                 str(level): level
                 for level in range(1, _max_level + 1)
             })
+            HASH_MAP = {
+                (player, level): "{}{}".format(player_str, level_str)
+                for player, player_str in cls.HASH_PLAYER_MAP.items()
+                for level, level_str in _HASH_LEVEL_MAP.items()
+            }
         MapForMaxLevel.__name__ = "{}{}".format(cls.__name__, max_level)
 
         return MapForMaxLevel
@@ -140,6 +146,7 @@ class Board:
 
     HASH_PLAYER_MAP = {None: ' ', PLAYER_A: 'a', PLAYER_B: 'b'}
     HASH_LEVEL_MAP = NotImplemented
+    HASH_MAP = NotImplemented
 
     PARSE_PLAYER_MAP = {' ': None, 'a': PLAYER_A, 'b': PLAYER_B}
     PARSE_LEVEL_MAP = NotImplemented
@@ -242,27 +249,15 @@ class Board:
 
     def get_board_hash(self):
         return "".join(
-            "{}{}".format(
-                self.HASH_PLAYER_MAP[player],
-                self.HASH_LEVEL_MAP[level],
-            )
-            for player, level in (
-                self[position]
-                for position in self.positions
-            )
+            self.HASH_MAP[self[position]]
+            for position in self.positions
         )
 
     def get_board_hash_with_reverse_transformation(
             self, reverse_transformation):
         return "".join(
-            "{}{}".format(
-                self.HASH_PLAYER_MAP[player],
-                self.HASH_LEVEL_MAP[level],
-            )
-            for player, level in (
-                self[reverse_transformation[position]]
-                for position in self.positions
-            )
+            self.HASH_MAP[self[reverse_transformation[position]]]
+            for position in self.positions
         )
 
     @property
